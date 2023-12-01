@@ -1,0 +1,15 @@
+**6 FIELDS**
+
+1. TARGET: the polarity of the tweet (0 = negative, 2 = neutral, 4 = positive)
+
+2. ID: The id of the tweet (2087)
+
+3. DATE: the date of the tweet (Sat May 16 23:58:44 UTC 2009)
+
+4. FLAG: The query (lyx). If there is no query, then this value is NO_QUERY.
+
+5. USER: the user that tweeted (robotickilldozr)
+
+6. CONTENT: the text of the tweet (Lyx is cool)
+
+From: https://www.kaggle.com/datasets/kazanova/sentiment140/
