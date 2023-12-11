@@ -13,7 +13,7 @@ using namespace std;
 /*  path variables  **
 
 export EIGEN_PATH=/usr/local/include/eigen3/Eigen/ && export BOOST_PATH=/opt/homebrew/Cellar/boost/1.83.0/include/boost
-g++ -I$EIGEN_PATH -I$BOOST_PATH /Users/aly/Desktop/Main/funni_code/machinelearning/neuralnet/nnMain.cpp -o nnMain && ./nnMain
+g++ -I$EIGEN_PATH -I$BOOST_PATH /Users/aly/Desktop/Main/funni_code/machinelearning/neuralnet/nnMain.cpp -std=c++11 -o nnMain && ./nnMain
 
 **  compile statement  */
 /*–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––   AUXILLARY PROTOTYPES   –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––*/
@@ -31,6 +31,10 @@ float sigDer(float f);
 struct inputNode;
 struct hiddenNode;
 struct outputNode;
+struct line;
+//declare class
+class nodeNet;
+class tableStr;
 
 /*––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––   STRUCT ACT   ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––*/
 //input node struct
@@ -51,7 +55,7 @@ struct outputNode {
     public:
     //outputs for calculations
     vector<float> hiddenOutputs;
-
+    vector<float> weights;
     //pointers to hidden nodes for backpropagation
     vector<hiddenNode*> hiddenNodes;
 
@@ -59,7 +63,9 @@ struct outputNode {
     float bias;
 
     //constructor:
-    outputNode() : bias(randomFloat(-0.35f, 0.35f)) {}
+    outputNode() : bias(randomFloat(-0.015f, 0.05f)) {
+        for(int i = 0; i < 10; i++) weights.push_back(randomFloat(-0.015f, 0.05f));
+    }
 
     //add output, accessible from hidden nodes
     void addHidden(hiddenNode* h) {
@@ -75,7 +81,7 @@ struct outputNode {
     float returnFinalOutput() {
         float output = 0.0f;
         for(int i = 0; i < hiddenOutputs.size(); i++) {
-            output += hiddenOutputs[i];
+            output += hiddenOutputs[i]*weights[i];
         }
         output += bias;
         hiddenOutputs.clear();
@@ -116,9 +122,9 @@ struct hiddenNode {
         //link to outputNode
         vector<float> temp;
         //set random weights
-        for(int i = 0; i < 50; i++) { temp.push_back(randomFloat(-0.35f, 0.35f)); }
+        for(int i = 0; i < 50; i++) { temp.push_back(randomFloat(-0.035f, 0.05f)); }
         //also sets bias
-        bias = randomFloat(-0.35f, 0.35f);
+        bias = randomFloat(-0.035f, 0.04f);
         //return random weights
         return temp;
     }
@@ -142,41 +148,110 @@ struct hiddenNode {
 
 };
 
+//line
+struct line {
+    public:
+    int actual;
+    vector<float> embedded;
+    line(int a, vector<float> e) : actual(a), embedded(e) {};
+};
+
+//table
+class tableStr {
+    public:
+    vector<line> alldata;
+    tableStr() : alldata() {}    
+
+    //add line
+    void addLine(int a, vector<float> e) {
+        alldata.push_back(line(a, e));
+    }
+
+    //line reader
+    void addLinesGlobal (ifstream& file, int totalLines) {
+        for(int i = 0; i < totalLines; i++) {
+            //temp line
+            string tempLine;
+            //to fill/upload
+            int actual;
+            vector<float> tempVec;
+            //get entire line since its broken up
+            getline(file, tempLine);
+            //NA protection
+            if(tempLine.size() < 5) continue;
+            while(tempLine[tempLine.length()-2] != ']') {
+                string tempTempLine;
+                getline(file, tempTempLine);
+                tempLine += " " + tempTempLine;
+            }     
+            //this is col(index)0
+            actual = stoi(tempLine.substr(0));
+            if(actual > 1) actual = 1;
+            //in the data this is where all col(index)1 lines start
+            int startingIndex = 4;
+            //lambda
+            auto convert = [&startingIndex](string line, int index) -> float {
+                int end = index;
+                while(line[end] != ' ' && line[end] != ']') end++;
+                startingIndex = end;
+                return stof(line.substr(index, end-index));
+            };
+            //converts string line into vector of 50
+            while(startingIndex < tempLine.size()-2) {
+                if(tempLine[startingIndex] == ']') break;
+                if(tempLine[startingIndex] != ' ') {
+                    float tempF;
+                    tempF = convert(tempLine, startingIndex);
+                    tempVec.push_back(tempF); }
+                else startingIndex++;
+            }
+            addLine(actual, tempVec);
+        }
+    }
+};
+
 /*–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––   CLASS ACTUAL   –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––*/
 //neural net class
 class nodeNet {
     public:
     //global learning rate, declared at initialization by user
     float learningRate;
+    inputNode* inputNeuron;
+    outputNode* outputNeuron;
+    hiddenNode* hiddenNeurons[10];
     //constructor
     nodeNet(float r) : learningRate(r) {
         //create pointer to input node first:
-        inputNode* inputNeuron = new inputNode();
+        inputNeuron = new inputNode();
         //create output node so we dont get clapped trying to set up hidden nodes
-        outputNode* outputNeuron = new outputNode();
+        outputNeuron = new outputNode();
         //create hidden nodes:
-        hiddenNode* hiddenNeuron1 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron2 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron3 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron4 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron5 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron6 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron7 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron8 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron9 = new hiddenNode(inputNeuron, outputNeuron);
-        hiddenNode* hiddenNeuron10 = new hiddenNode(inputNeuron, outputNeuron);
+        for(int i = 0; i < 10; i++) { hiddenNeurons[i] = new hiddenNode(inputNeuron, outputNeuron); }
         //constructor done
+    }
+
+    void moveForward(inputNode*& in, outputNode*& end, line lstr) {
+        in->input = lstr.embedded;
+        end->hiddenOutputs.clear();
+        //10 hidden nodes
+        for(int i = 0; i < 10; i++) {
+            end->hiddenNodes[i]->calculateOutput();
+        }
+        float predicted = end->returnFinalOutput();
+        //cout << predicted << " --------- " << lstr.actual << endl;
+        backPropagate(end, static_cast<float>(lstr.actual), predicted);
     }
 
     void backPropagate(outputNode*& end, float actual, float predicted) {
         //fixing input vals bc theyre trolling
-        actual /= 4.0f;
         float loss = calculateLoss(actual, predicted);
+        //cout << setprecision(9) << abs(loss) << endl;
         float gradient = calculateGradient(actual, predicted);
         //pass back through sigmoid function
         gradient *= sigDer(predicted);
         //apply to output node bias, learningRate is a class attribute 
         end->bias = end->bias - gradient*learningRate;
+        for(int i = 0; i < 10; i++) end->weights[i] = end->weights[i] - gradient*learningRate;
         //pass back to hidden nodes
         vector<hiddenNode*> allHidden = end->hiddenNodes;
         //apply to hidden node biases and weights
@@ -196,6 +271,7 @@ class nodeNet {
         end->hiddenOutputs.clear();
     }
 
+    //auxillary function
     void reWeigh(hiddenNode* hidden, float changeFactor) {
         for(int i = 0; i < hidden->inputWeight.size(); i++) {
             hidden->inputWeight[i] = hidden->inputWeight[i] - (changeFactor*hidden->input[i]);
@@ -203,6 +279,7 @@ class nodeNet {
         }
     }
 
+    //loss function
     float calculateLoss(float actual, float predicted) {
         //fixing predicted for edgecases
         if(predicted <= 0.001f) predicted = 0.001f;
@@ -211,6 +288,7 @@ class nodeNet {
         return -(actual * log(predicted) + (1.0f - actual) * log(1.0f - predicted));
     }
 
+    //loss gradient
     float calculateGradient(float actual, float predicted) {
         //fixing predicted for edgecases
         if(predicted <= 0.001f) predicted = 0.001f;
@@ -231,8 +309,8 @@ class nodeNet {
 //generate random float within bounds low and high
 float randomFloat(float low, float high) {
     //seed
-    random_device seed;
-    mt19937 gen(seed());
+    static random_device seed;
+    static mt19937 gen(seed());
     uniform_real_distribution<float> dist(low, high);
     return dist(gen);
 }
@@ -256,31 +334,44 @@ T anyMax(T a, T b) {
 
 /*–––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––   MAIN   –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––*/
 
-struct line {
-    public:
-    int actual;
-    vector<float> embedded;
-};
-
-class tableStr {
-    public:
-    vector<line> alldata;
-    tableStr() : alldata() {}    
-}
-
 int main() {
+    //desync
+    ios_base::sync_with_stdio(false);
+    std::cin.tie(NULL);
+    std::cout.tie(NULL);
     //initializing neural net with learning rate of 0.007
     nodeNet neuralNet(0.007f);
 
     //make tablestruct with our dimensions
-    tableStr testData;
+    tableStr trainData;
 
-
-
-    string filePath = "./nnData/fixedRandom/randomBasic.csv";
-    ifstream(filePath);
+    //open filestream
+    string filePath = "./nnData/fixedRandom/100k.csv";
+    ifstream file(filePath);
     if(!file.is_open()) { cout << "bad\n"; return -1; }
 
+    //add 2000 lines to trainData
+    trainData.addLinesGlobal(file, 100000);
+
+    float avgdif = 0.0f;
+    float correct = 0.0f;
+
+    for(int i = 0; i < 3; i++) {
+        for(int i = 0; i < 100000; i++) {
+            neuralNet.moveForward(neuralNet.inputNeuron, neuralNet.outputNeuron, trainData.alldata[i]);
+            if(i > 90000) {
+                avgdif += neuralNet.outputNeuron->returnFinalOutput();
+                if(abs(neuralNet.outputNeuron->returnFinalOutput() - static_cast<float>(trainData.alldata[i].actual)) < 0.5f) {
+                    correct+=1.0f;
+                }
+            }
+        }
+    }
+
+    cout << endl << "Avg diff over runs 90000-100000: " << avgdif/30000.0f << endl << "percent correct: " << correct/300 << endl;
+
+    file.close();
+
+    exit(0);
     return 0;
 }
-
