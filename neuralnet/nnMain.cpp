@@ -64,7 +64,8 @@ struct outputNode {
 
     //constructor:
     outputNode() : bias(randomFloat(-0.015f, 0.05f)) {
-        for(int i = 0; i < 10; i++) weights.push_back(randomFloat(-0.015f, 0.05f));
+        for(int i = 0; i < 10; i++) weights.push_back(randomFloat(-0.3f, 0.1f));
+        for(int k = 0; k < 10; k++) weights.push_back(randomFloat(-0.05f, 0.35f));
     }
 
     //add output, accessible from hidden nodes
@@ -111,20 +112,20 @@ struct hiddenNode {
     float bias;
 
     //constructor
-    hiddenNode(inputNode* s, outputNode* e) : source(s), end(e) {
+    hiddenNode(inputNode* s, outputNode* e, float upperlimit, float lowerlimit) : source(s), end(e) {
         //initialize first randoms
-        inputWeight = initializeRandoms();
+        inputWeight = initializeRandoms(lowerlimit, upperlimit);
         output = calculateOutput();
         end->addHidden(this); //adds this to end node to link the 2
     } 
 
-    vector<float> initializeRandoms() {
+    vector<float> initializeRandoms(float upperlimit, float lowerlimit) {
         //link to outputNode
         vector<float> temp;
         //set random weights
-        for(int i = 0; i < 50; i++) { temp.push_back(randomFloat(-0.035f, 0.05f)); }
+        for(int i = 0; i < 50; i++) { temp.push_back(randomFloat(lowerlimit, upperlimit)); }
         //also sets bias
-        bias = randomFloat(-0.035f, 0.04f);
+        bias = randomFloat(-0.035f, 0.035f);
         //return random weights
         return temp;
     }
@@ -218,7 +219,7 @@ class nodeNet {
     float learningRate;
     inputNode* inputNeuron;
     outputNode* outputNeuron;
-    hiddenNode* hiddenNeurons[10];
+    hiddenNode* hiddenNeurons[20];
     //constructor
     nodeNet(float r) : learningRate(r) {
         //create pointer to input node first:
@@ -226,7 +227,10 @@ class nodeNet {
         //create output node so we dont get clapped trying to set up hidden nodes
         outputNeuron = new outputNode();
         //create hidden nodes:
-        for(int i = 0; i < 10; i++) { hiddenNeurons[i] = new hiddenNode(inputNeuron, outputNeuron); }
+        for(int i = 0; i < 10; i++) {
+            hiddenNeurons[i] = new hiddenNode(inputNeuron, outputNeuron, -0.025f, 0.005f);
+            hiddenNeurons[i+10] = new hiddenNode(inputNeuron, outputNeuron, -0.005f, 0.025f);
+        }
         //constructor done
     }
 
@@ -234,7 +238,7 @@ class nodeNet {
         in->input = lstr.embedded;
         end->hiddenOutputs.clear();
         //10 hidden nodes
-        for(int i = 0; i < 10; i++) {
+        for(int i = 0; i < end->hiddenNodes.size(); i++) {
             end->hiddenNodes[i]->calculateOutput();
         }
         float predicted = end->returnFinalOutput();
@@ -251,7 +255,7 @@ class nodeNet {
         gradient *= sigDer(predicted);
         //apply to output node bias, learningRate is a class attribute 
         end->bias = end->bias - gradient*learningRate;
-        for(int i = 0; i < 10; i++) end->weights[i] = end->weights[i] - gradient*learningRate;
+        for(int i = 0; i < end->hiddenNodes.size(); i++) end->weights[i] = end->weights[i] - gradient*learningRate;
         //pass back to hidden nodes
         vector<hiddenNode*> allHidden = end->hiddenNodes;
         //apply to hidden node biases and weights
@@ -356,19 +360,18 @@ int main() {
     float avgdif = 0.0f;
     float correct = 0.0f;
 
-    for(int i = 0; i < 3; i++) {
-        for(int i = 0; i < 100000; i++) {
-            neuralNet.moveForward(neuralNet.inputNeuron, neuralNet.outputNeuron, trainData.alldata[i]);
-            if(i > 90000) {
-                avgdif += neuralNet.outputNeuron->returnFinalOutput();
-                if(abs(neuralNet.outputNeuron->returnFinalOutput() - static_cast<float>(trainData.alldata[i].actual)) < 0.5f) {
-                    correct+=1.0f;
-                }
+
+    for(int i = 0; i < 100000; i++) {
+        neuralNet.moveForward(neuralNet.inputNeuron, neuralNet.outputNeuron, trainData.alldata[i]);
+        if(i > 99000) {
+            avgdif += neuralNet.outputNeuron->returnFinalOutput();
+            if(abs(neuralNet.outputNeuron->returnFinalOutput() - static_cast<float>(trainData.alldata[i].actual)) < 0.5f) {
+                correct+=1.0f;
             }
         }
     }
 
-    cout << endl << "Avg diff over runs 90000-100000: " << avgdif/30000.0f << endl << "percent correct: " << correct/300 << endl;
+    cout << endl << "Avg diff over runs 99000-100000: " << avgdif/1000.0f << endl << "percent correct: " << correct/10 << endl;
 
     file.close();
 
